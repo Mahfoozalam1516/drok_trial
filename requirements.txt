@@ -2,6 +2,7 @@ flask
 gunicorn
 deepgram-sdk
 python-dotenv
+PyAudio
 websockets
 janus
 requests
