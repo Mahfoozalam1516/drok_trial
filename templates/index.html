@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DigiRocket Voice Assistant</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --primary-dark: #3a56d4;
+            --primary-light: #eef2ff;
+            --secondary-color: #2d46cc;
+            --text-color: #333;
+            --light-text: #6c757d;
+            --bg-color: #f8f9fc;
+            --card-bg: #fff;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            --warning-color: #ff9800;
+            --border-radius: 12px;
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'San Francisco', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-weight: 700;
+            font-size: 2.5rem;
+        }
+
+        .header p {
+            color: var(--light-text);
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+
+        .chat-container {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 18px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .chat-header h3 {
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header h3 i {
+            font-size: 1.2rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            background-color: rgba(255,255,255,0.15);
+            padding: 5px 12px;
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-dot.inactive {
+            background-color: #ccc;
+        }
+
+        .status-dot.active {
+            background-color: var(--success-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+            background-color: #fcfcfc;
+            background-image: radial-gradient(rgba(67, 97, 238, 0.03) 2px, transparent 2px);
+            background-size: 30px 30px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-footer {
+            border-top: 1px solid #eee;
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9fb;
+            position: relative;
+            height: 80px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+
+        .message-content {
+            padding: 15px 18px;
+            border-radius: 18px;
+            margin-bottom: 5px;
+            position: relative;
+            line-height: 1.5;
+            word-wrap: break-word;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            color: var(--light-text);
+            margin: 0 5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .user-message {
+            align-items: flex-end;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .user-message .message-content {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-bottom-right-radius: 5px;
+            position: relative;
+        }
+
+        .assistant-message {
+            align-items: flex-start;
+            align-self: flex-start;
+        }
+
+        .assistant-message .message-content {
+            background-color: #f0f2f5;
+            color: var(--text-color);
+            border-bottom-left-radius: 5px;
+        }
+
+        .system-message {
+            text-align: center;
+            margin: 15px 0;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .system-message span {
+            background-color: #f0f0f0;
+            padding: 7px 15px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            color: var(--light-text);
+            display: inline-block;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 25px;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-width: 150px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .status-text {
+            text-align: center;
+            margin-top: 15px;
+            font-style: italic;
+            color: var(--primary-color);
+            font-weight: 500;
+            background-color: var(--primary-light);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 20px auto 0;
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .thinking-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0 auto;
+        }
+
+        .thinking-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0.7;
+        }
+
+        .dot1 { animation: bounce 1.4s infinite 0.2s; }
+        .dot2 { animation: bounce 1.4s infinite 0.4s; }
+        .dot3 { animation: bounce 1.4s infinite 0.6s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-7px); }
+        }
+
+        .microphone-wave {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+        }
+
+        .mic-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            z-index: 2;
+            color: var(--primary-color);
+            background-color: white;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .wave {
+            position: absolute;
+            border: 2px solid var(--primary-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: wave 2s infinite;
+            opacity: 0;
+        }
+
+        .wave:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+
+        .wave:nth-child(3) {
+            animation-delay: 0.8s;
+        }
+
+        @keyframes wave {
+            0% {
+                width: 50px;
+                height: 50px;
+                opacity: 0.8;
+            }
+            100% {
+                width: 120px;
+                height: 120px;
+                opacity: 0;
+            }
+        }
+        
+        .error-message {
+            color: var(--error-color);
+            text-align: center;
+            margin: 15px auto;
+            padding: 12px 20px;
+            background-color: rgba(244, 67, 54, 0.1);
+            border-radius: 8px;
+            max-width: 80%;
+            border-left: 3px solid var(--error-color);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+
+        .status-bar.active {
+            animation: statusProgress 10s linear;
+        }
+
+        @keyframes statusProgress {
+            0% { transform: scaleX(0); }
+            100% { transform: scaleX(1); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .chat-container {
+                height: 500px;
+            }
+            
+            .btn {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+                min-width: 120px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .header p {
+                font-size: 0.95rem;
+            }
+
+            .chat-body {
+                padding: 15px;
+            }
+
+            .message-content {
+                padding: 12px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-rocket"></i> DigiRocket Voice Assistant</h1>
+            <p>Enhance your digital marketing strategy with our AI-powered voice assistant</p>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3><i class="fas fa-comment-alt"></i> Voice Conversation</h3>
+                <div class="status-indicator">
+                    <div class="status-dot inactive" id="statusDot"></div>
+                    <span id="connectionStatus">Disconnected</span>
+                </div>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="system-message">
+                    <span><i class="fas fa-info-circle"></i> Welcome to DigiRocket voice conversation. Click "Start Conversation" to begin.</span>
+                </div>
+            </div>
+            <div class="chat-footer">
+                <div class="microphone-wave" id="microphoneWave" style="display: none;">
+                    <div class="wave"></div>
+                    <div class="wave"></div>
+                    <div class="wave"></div>
+                    <i class="fas fa-microphone mic-icon"></i>
+                </div>
+                <div class="thinking-indicator" id="thinkingIndicator" style="display: none;">
+                    <div class="thinking-dot dot1"></div>
+                    <div class="thinking-dot dot2"></div>
+                    <div class="thinking-dot dot3"></div>
+                </div>
+                <div class="status-bar" id="statusBar"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">
+                <i class="fas fa-play"></i> Start Conversation
+            </button>
+            <button class="btn btn-danger" id="endBtn" disabled>
+                <i class="fas fa-stop"></i> End Conversation
+            </button>
+        </div>
+
+        <div class="status-text" id="statusText">Ready to start conversation</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const startBtn = document.getElementById('startBtn');
+            const endBtn = document.getElementById('endBtn');
+            const chatBody = document.getElementById('chatBody');
+            const statusDot = document.getElementById('statusDot');
+            const connectionStatus = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('statusText');
+            const microphoneWave = document.getElementById('microphoneWave');
+            const thinkingIndicator = document.getElementById('thinkingIndicator');
+            const statusBar = document.getElementById('statusBar');
+
+            // Variables
+            let sessionId = null;
+            let pollInterval = null;
+            let conversationActive = false;
+
+            // Event listeners
+            startBtn.addEventListener('click', startConversation);
+            endBtn.addEventListener('click', endConversation);
+
+            // Add hover effects
+            addButtonHoverEffects();
+
+            // Functions
+            async function startConversation() {
+                try {
+                    addClickEffect(startBtn);
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+
+                    updateStatus('Connecting...');
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+
+                    const response = await fetch('/api/start_session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'started') {
+                        sessionId = data.session_id;
+                        conversationActive = true;
+                        
+                        startBtn.disabled = true;
+                        endBtn.disabled = false;
+                        statusDot.classList.remove('inactive');
+                        statusDot.classList.add('active');
+                        connectionStatus.textContent = 'Connected';
+                        
+                        startPolling();
+                        
+                        addSystemMessage('Connection established. Speak to begin conversation.');
+                    } else {
+                        throw new Error('Failed to start session');
+                    }
+                } catch (error) {
+                    console.error('Error starting conversation:', error);
+                    addErrorMessage('Microphone access is required. Please allow microphone access and try again.');
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fas fa-play"></i> Start Conversation';
+                    updateStatus('Failed to start: ' + error.message);
+                }
+            }
+
+            async function endConversation() {
+                if (!sessionId) return;
+
+                addClickEffect(endBtn);
+                endBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ending...';
+
+                try {
+                    const response = await fetch('/api/end_session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ session_id: sessionId })
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'session ended') {
+                        conversationActive = false;
+                        stopPolling();
+                        resetUI();
+                        addSystemMessage('<i class="fas fa-check-circle"></i> Conversation ended successfully.');
+                    }
+                } catch (error) {
+                    console.error('Error ending conversation:', error);
+                    addErrorMessage('Failed to end conversation properly.');
+                    endBtn.innerHTML = '<i class="fas fa-stop"></i> End Conversation';
+                }
+            }
+
+            function startPolling() {
+                pollInterval = setInterval(pollMessages, 500);
+            }
+
+            function stopPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }
+
+            async function pollMessages() {
+                if (!sessionId) return;
+
+                try {
+                    const response = await fetch(`/api/get_messages?session_id=${sessionId}`);
+                    const data = await response.json();
+                    
+                    if (data.messages && data.messages.length > 0) {
+                        processMessages(data.messages);
+                    }
+                } catch (error) {
+                    console.error('Error polling messages:', error);
+                }
+            }
+
+            function processMessages(messages) {
+                messages.forEach(message => {
+                    switch (message.type) {
+                        case 'user':
+                            addUserMessage(message.message);
+                            break;
+                        case 'assistant':
+                            addAssistantMessage(message.message);
+                            break;
+                        case 'system':
+                            addSystemMessage(message.message);
+                            break;
+                        case 'error':
+                            addErrorMessage(message.message);
+                            break;
+                        case 'status':
+                            updateUIStatus(message.message);
+                            break;
+                    }
+                });
+            }
+
+            function addUserMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message user-message';
+                
+                const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                messageDiv.innerHTML = `
+                    <div class="message-content">${text}</div>
+                    <div class="message-time"><i class="fas fa-check"></i> ${timestamp}</div>
+                `;
+                
+                chatBody.appendChild(messageDiv);
+                messageDiv.style.opacity = '0';
+                messageDiv.style.transform = 'translateY(10px)';
+                
+                setTimeout(() => {
+                    messageDiv.style.transition = 'all 0.3s ease';
+                    messageDiv.style.opacity = '1';
+                    messageDiv.style.transform = 'translateY(0)';
+                }, 10);
+                
+                scrollToBottom();
+            }
+
+            function addAssistantMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message assistant-message';
+                
+                const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                messageDiv.innerHTML = `
+                    <div class="message-content">${text}</div>
+                    <div class="message-time"><i class="fas fa-robot"></i> ${timestamp}</div>
+                `;
+                
+                chatBody.appendChild(messageDiv);
+                messageDiv.style.opacity = '0';
+                messageDiv.style.transform = 'translateY(10px)';
+                
+                setTimeout(() => {
+                    messageDiv.style.transition = 'all 0.3s ease';
+                    messageDiv.style.opacity = '1';
+                    messageDiv.style.transform = 'translateY(0)';
+                }, 10);
+                
+                scrollToBottom();
+            }
+
+            function addSystemMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'system-message';
+                messageDiv.innerHTML = `<span>${text}</span>`;
+                
+                chatBody.appendChild(messageDiv);
+                scrollToBottom();
+            }
+
+            function addErrorMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'error-message';
+                messageDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${text}`;
+                
+                chatBody.appendChild(messageDiv);
+                scrollToBottom();
+            }
+
+            function updateUIStatus(status) {
+                statusBar.classList.remove('active');
+                
+                switch (status) {
+                    case 'listening':
+                        updateStatus('<i class="fas fa-microphone"></i> Listening...');
+                        microphoneWave.style.display = 'block';
+                        thinkingIndicator.style.display = 'none';
+                        break;
+                    case 'thinking':
+                    case 'preparing_response':
+                        updateStatus('<i class="fas fa-brain"></i> Assistant is thinking...');
+                        microphoneWave.style.display = 'none';
+                        thinkingIndicator.style.display = 'flex';
+                        break;
+                    case 'speaking':
+                        updateStatus('<i class="fas fa-volume-up"></i> Assistant is speaking...');
+                        microphoneWave.style.display = 'none';
+                        thinkingIndicator.style.display = 'none';
+                        statusBar.classList.add('active');
+                        break;
+                    case 'done_speaking':
+                        updateStatus('<i class="fas fa-comment-dots"></i> Ready for your response');
+                        microphoneWave.style.display = 'none';
+                        thinkingIndicator.style.display = 'none';
+                        break;
+                }
+            }
+
+            function updateStatus(text) {
+                statusText.innerHTML = text;
+            }
+
+            function resetUI() {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-play"></i> Start Conversation';
+                endBtn.disabled = true;
+                endBtn.innerHTML = '<i class="fas fa-stop"></i> End Conversation';
+                statusDot.classList.remove('active');
+                statusDot.classList.add('inactive');
+                connectionStatus.textContent = 'Disconnected';
+                updateStatus('<i class="fas fa-info-circle"></i> Ready to start conversation');
+                microphoneWave.style.display = 'none';
+                thinkingIndicator.style.display = 'none';
+                statusBar.classList.remove('active');
+                sessionId = null;
+            }
+
+            function scrollToBottom() {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+
+            function addButtonHoverEffects() {
+                const buttons = document.querySelectorAll('.btn');
+                buttons.forEach(button => {
+                    button.addEventListener('mouseenter', () => {
+                        if (!button.disabled) {
+                            button.style.transform = 'translateY(-2px)';
+                        }
+                    });
+                    
+                    button.addEventListener('mouseleave', () => {
+                        if (!button.disabled) {
+                            button.style.transform = 'translateY(0)';
+                        }
+                    });
+                });
+            }
+
+            function addClickEffect(button) {
+                button.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    button.style.transform = '';
+                }, 200);
+            }
+
+            window.addEventListener('beforeunload', function() {
+                if (sessionId) {
+                    fetch('/api/end_session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ session_id: sessionId }),
+                        keepalive: true
+                    });
+                }
+            });
+
+            setTimeout(() => {
+                startBtn.style.animation = 'pulse 2s infinite';
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
