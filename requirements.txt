@@ -1,5 +1,5 @@
 flask
-libportaudio-dev
+portaudio
 gunicorn
 deepgram-sdk
 python-dotenv
