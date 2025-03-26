@@ -90,3 +90,4 @@ zope.event
 zope.interface
 aiortc
 webrtcvad
+sounddevice
