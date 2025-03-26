@@ -6,6 +6,7 @@
     <title>DigiRocket Voice Assistant</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* Same CSS as provided in the original code */
         :root {
             --primary-color: #4361ee;
             --primary-dark: #3a56d4;
@@ -519,6 +520,8 @@
             let sessionId = null;
             let pollInterval = null;
             let conversationActive = false;
+            let mediaRecorder = null;
+            let websocket = null;
 
             // Event listeners
             startBtn.addEventListener('click', startConversation);
@@ -527,14 +530,33 @@
             // Add hover effects
             addButtonHoverEffects();
 
-            // Functions
+            // WebRTC and WebSocket setup
+            async function setupWebRTC() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    
+                    websocket = new WebSocket(`ws://localhost:8765/${sessionId}`);
+                    websocket.onopen = () => console.log('WebSocket connected');
+                    websocket.onerror = (error) => console.error('WebSocket error:', error);
+                    websocket.onclose = () => console.log('WebSocket closed');
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0 && websocket.readyState === WebSocket.OPEN) {
+                            websocket.send(event.data);
+                        }
+                    };
+                    mediaRecorder.start(100); // Send audio chunks every 100ms
+                } catch (error) {
+                    console.error('WebRTC setup error:', error);
+                    addErrorMessage('Failed to access microphone. Please allow access and try again.');
+                }
+            }
+
             async function startConversation() {
                 try {
                     addClickEffect(startBtn);
                     
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    stream.getTracks().forEach(track => track.stop());
-
                     updateStatus('Connecting...');
                     startBtn.disabled = true;
                     startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
@@ -551,6 +573,8 @@
                         sessionId = data.session_id;
                         conversationActive = true;
                         
+                        await setupWebRTC();
+
                         startBtn.disabled = true;
                         endBtn.disabled = false;
                         statusDot.classList.remove('inactive');
@@ -565,7 +589,7 @@
                     }
                 } catch (error) {
                     console.error('Error starting conversation:', error);
-                    addErrorMessage('Microphone access is required. Please allow microphone access and try again.');
+                    addErrorMessage('Failed to start conversation: ' + error.message);
                     startBtn.disabled = false;
                     startBtn.innerHTML = '<i class="fas fa-play"></i> Start Conversation';
                     updateStatus('Failed to start: ' + error.message);
@@ -579,6 +603,14 @@
                 endBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ending...';
 
                 try {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    }
+                    if (websocket) {
+                        websocket.close();
+                    }
+
                     const response = await fetch('/api/end_session', {
                         method: 'POST',
                         headers: {
@@ -801,6 +833,13 @@
                         body: JSON.stringify({ session_id: sessionId }),
                         keepalive: true
                     });
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    }
+                    if (websocket) {
+                        websocket.close();
+                    }
                 }
             });
 

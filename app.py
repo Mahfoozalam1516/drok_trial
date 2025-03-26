@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import json
 import os
-from deepgram.utils import verboselogs
 from deepgram import (
     DeepgramClient,
     DeepgramClientOptions,
@@ -11,6 +10,8 @@ from deepgram import (
 import threading
 import queue
 from dotenv import load_dotenv
+import asyncio
+import websockets
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,6 +21,7 @@ app = Flask(__name__)
 # Global variables
 active_connections = {}
 message_queues = {}
+audio_queues = {}  # To store audio data from WebRTC
 
 @app.route('/')
 def index():
@@ -28,11 +30,12 @@ def index():
 
 @app.route('/api/start_session', methods=['POST'])
 def start_session():
-    """Start a new Deepgram voice session"""
+    """Start a new Deepgram voice session with WebRTC"""
     session_id = f"session_{len(active_connections) + 1}"
     
-    # Create message queue for this session
+    # Create message and audio queues for this session
     message_queues[session_id] = queue.Queue()
+    audio_queues[session_id] = queue.Queue()
     
     # Start Deepgram in a separate thread
     thread = threading.Thread(target=start_deepgram_session, args=(session_id,))
@@ -71,11 +74,23 @@ def end_session():
     
     if session_id in message_queues:
         del message_queues[session_id]
+    if session_id in audio_queues:
+        del audio_queues[session_id]
     
     return jsonify({"status": "session ended"})
 
+async def handle_webrtc_audio(session_id, websocket):
+    """Handle incoming WebRTC audio data"""
+    try:
+        while True:
+            audio_data = await websocket.recv()
+            if session_id in audio_queues:
+                audio_queues[session_id].put(audio_data)
+    except Exception as e:
+        print(f"WebRTC audio error: {str(e)}")
+
 def start_deepgram_session(session_id):
-    """Start a Deepgram websocket session"""
+    """Start a Deepgram WebSocket session and process WebRTC audio"""
     try:
         # Get Deepgram API key from environment variable
         api_key = os.getenv("DEEPGRAM_API_KEY")
@@ -98,7 +113,7 @@ def start_deepgram_session(session_id):
             },
         )
         
-        # Create Deepgram client with API key from .env
+        # Create Deepgram client
         deepgram = DeepgramClient(api_key, config)
         dg_connection = deepgram.agent.websocket.v("1")
         
@@ -180,9 +195,6 @@ def start_deepgram_session(session_id):
                 "message": "preparing_response"
             })
 
-        def on_unhandled(self, unhandled, **kwargs):
-            pass
-
         dg_connection.on(AgentWebSocketEvents.Open, on_open)
         dg_connection.on(AgentWebSocketEvents.Welcome, on_welcome)
         dg_connection.on(AgentWebSocketEvents.SettingsApplied, on_settings_applied)
@@ -193,7 +205,6 @@ def start_deepgram_session(session_id):
         dg_connection.on(AgentWebSocketEvents.AgentAudioDone, on_agent_audio_done)
         dg_connection.on(AgentWebSocketEvents.Close, on_close)
         dg_connection.on(AgentWebSocketEvents.Error, on_error)
-        dg_connection.on(AgentWebSocketEvents.Unhandled, on_unhandled)
         
         try:
             dg_connection.on("EndOfThought", on_end_of_thought)
@@ -210,7 +221,6 @@ def start_deepgram_session(session_id):
         
         options.agent.speak.voice = "nova"
         options.agent.speak.rate = 0.95
-        
         options.agent.barge_in = True
         
         options.transcription = {
@@ -228,11 +238,30 @@ def start_deepgram_session(session_id):
             })
             return
 
+        # Process WebRTC audio and send to Deepgram
+        while session_id in active_connections:
+            try:
+                if not audio_queues[session_id].empty():
+                    audio_data = audio_queues[session_id].get_nowait()
+                    dg_connection.send(audio_data)
+            except Exception as e:
+                message_queues[session_id].put({
+                    "type": "error",
+                    "message": f"Audio processing error: {str(e)}"
+                })
+
     except Exception as e:
         message_queues[session_id].put({
             "type": "error",
             "message": f"An error occurred: {str(e)}"
         })
 
+# WebSocket server for WebRTC audio
+async def websocket_server():
+    async with websockets.serve(lambda ws, path: handle_webrtc_audio(path.split('/')[1], ws), "localhost", 8765):
+        await asyncio.Future()  # Run forever
+
 if __name__ == "__main__":
+    # Start WebSocket server in a separate thread
+    threading.Thread(target=lambda: asyncio.run(websocket_server()), daemon=True).start()
     app.run(debug=True)
