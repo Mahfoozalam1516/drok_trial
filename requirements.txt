@@ -2,6 +2,7 @@ flask
 gunicorn
 deepgram-sdk
 python-dotenv
+PyAudio
 websockets
 janus
 requests
@@ -90,4 +91,3 @@ zope.event
 zope.interface
 aiortc
 webrtcvad
-sounddevice
