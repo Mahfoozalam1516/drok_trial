@@ -91,3 +91,6 @@ zope.event
 zope.interface
 aiortc
 webrtcvad
+libportaudio2
+libportaudio-dev
+portaudio19-dev
